@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, field_serializer
 
 from typing import Optional, List
 
@@ -76,6 +76,10 @@ class MessageOut(BaseModel):
     username: Optional[str]
     content: str
     created_at: datetime
+
+    @field_serializer('created_at')
+    def parse_date(self, dt: datetime, _):
+        return dt.strftime('%H:%M %d-%m-%Y')
 
     class Config:
         from_attributes = True
