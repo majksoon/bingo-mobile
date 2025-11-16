@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..db import get_db
-from ..security import get_current_user, hash_password
+from ..security import get_current_user, hash_password, verify_password
+from pydantic import BaseModel
+
+class JoinRoomPayload(BaseModel):
+    password: str | None = None
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
@@ -64,22 +68,23 @@ def create_room(
 @router.post("/{room_id}/join", response_model=schemas.RoomOut)
 def join_room(
     room_id: int,
-    password: str | None = None,
+    payload: JoinRoomPayload,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
     room = db.get(models.Room, room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-
-    # limit 5 osób
+    
     if len(room.members) >= room.max_players:
         raise HTTPException(status_code=403, detail="Room is full")
 
-    # jeśli jest hasło, sprawdź
+    password = payload.password
+
     if room.password_hash:
-        if not password or not hash_password(password) or not password:  # uproszczenie
-            # w praktyce zrób verify_password dla hasła pokoju, jak dla użytkownika
+        print(not password)
+        print(verify_password(password, room.password_hash))
+        if not password or not verify_password(password, room.password_hash):
             raise HTTPException(status_code=401, detail="Invalid room password")
 
     # sprawdź, czy już członek

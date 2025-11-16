@@ -1,46 +1,46 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import {
-    Avatar,
-    Button,
-    Card,
-    Dialog,
-    FAB,
-    Portal,
-    Text,
-    TextInput,
+  Avatar,
+  Button,
+  Card,
+  Dialog,
+  FAB,
+  Portal,
+  Text,
+  TextInput,
 } from "react-native-paper";
-
-// Wszystkie pokoje mają hasło, limit 5 osób, start 0/5
-const INITIAL_ROOMS = [
-  {
-    id: "1",
-    name: "Pokój rodzinny",
-    players: 0,
-    max: 5,
-    password: "rodzina",
-    category: "sport",
-  },
-  {
-    id: "2",
-    name: "Znajomi",
-    players: 0,
-    max: 5,
-    password: "znajomi",
-    category: "nauka",
-  },
-  {
-    id: "3",
-    name: "Publiczny #1",
-    players: 0,
-    max: 5,
-    password: "bingo",
-    category: "sport",
-  },
-];
+import { createRoom, joinRoom, listRooms } from "../api/rooms";
+														  
+					   
+   
+			
+							
+			   
+		   
+						
+					  
+	
+   
+			
+					
+			   
+		   
+						
+					  
+	
+   
+			
+						 
+			   
+		   
+					  
+					  
+	
+  
 
 export default function RoomsScreen({ navigation }) {
-  const [rooms, setRooms] = useState(INITIAL_ROOMS);
+  const [rooms, setRooms] = useState([]);
 
   // dialog tworzenia pokoju
   const [createVisible, setCreateVisible] = useState(false);
@@ -53,36 +53,52 @@ export default function RoomsScreen({ navigation }) {
   const [roomToJoin, setRoomToJoin] = useState(null);
   const [joinPassword, setJoinPassword] = useState("");
 
+  async function loadRooms() {
+    try {
+      const data = await listRooms();
+      setRooms(data);
+    } catch (err) {
+      alert(err.message || "Failed to load rooms");
+    }
+  }
+
+  useEffect(() => {
+    loadRooms();
+  }, []);
+
+  // Dołączanie
   function askForPassword(room) {
     setRoomToJoin(room);
     setJoinPassword("");
     setJoinVisible(true);
   }
 
-  function confirmJoin() {
+  async function confirmJoin() {
     if (!roomToJoin) return;
 
-    if (joinPassword !== roomToJoin.password) {
-      alert("Nieprawidłowe hasło");
-      return;
+    try {
+      const joined = await joinRoom(roomToJoin.id, joinPassword);
+			 
+	 
+
+      setJoinVisible(false);
+      
+      navigation.navigate("Room", { room: joined });
+    } catch (err) {
+      alert(err.message);
     }
 
-    if (roomToJoin.players >= roomToJoin.max) {
-      alert("Pokój jest pełny (5/5)");
-      return;
-    }
+											   
+																		   
+					  
+																 
+	  
 
-    // „Dołączamy” lokalnie – ++ graczy
-    const updatedRoom = { ...roomToJoin, players: roomToJoin.players + 1 };
-    setRooms((prev) =>
-      prev.map((r) => (r.id === roomToJoin.id ? updatedRoom : r))
-    );
+						  
 
-    setJoinVisible(false);
-
-    // przekazujemy cały obiekt pokoju do RoomScreen,
-    // żeby tam mieć nazwę, kategorię, licznik itp.
-    navigation.navigate("Room", { room: updatedRoom });
+													  
+													   
+													   
   }
 
   function openCreateDialog() {
@@ -92,7 +108,7 @@ export default function RoomsScreen({ navigation }) {
     setCreateVisible(true);
   }
 
-  function createRoom() {
+  async function createRoomHandler() {
     if (!newRoomName.trim()) {
       alert("Podaj nazwę pokoju");
       return;
@@ -102,17 +118,20 @@ export default function RoomsScreen({ navigation }) {
       return;
     }
 
-    const newRoom = {
-      id: String(rooms.length + 1),
-      name: newRoomName.trim(),
-      players: 0, // zawsze start 0/5
-      max: 5,
-      password: newRoomPassword.trim(),
-      category: newRoomCategory, // "sport" albo "nauka"
-    };
+    try {
+      await createRoom({
+        name: newRoomName.trim(),
+									 
+			 
+        password: newRoomPassword.trim(),
+        category: newRoomCategory,
+      });
 
-    setRooms((prev) => [...prev, newRoom]);
-    setCreateVisible(false);
+      setCreateVisible(false);
+      loadRooms(); // odświeża listę
+    } catch (err) {
+      alert(err.message);
+    }
   }
 
   return (
@@ -123,13 +142,13 @@ export default function RoomsScreen({ navigation }) {
 
       <FlatList
         data={rooms}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <Card style={styles.card} onPress={() => askForPassword(item)}>
             <Card.Title
               title={item.name}
-              subtitle={`${item.players}/${item.max} uczestników • ${
+              subtitle={`${item.players}/${item.max_players} uczestników • ${
                 item.category === "sport" ? "Sport" : "Nauka"
               }`}
               left={(props) => <Avatar.Icon {...props} icon="lock" />}
@@ -198,7 +217,7 @@ export default function RoomsScreen({ navigation }) {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setCreateVisible(false)}>Anuluj</Button>
-            <Button onPress={createRoom}>Utwórz</Button>
+            <Button onPress={createRoomHandler}>Utwórz</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>

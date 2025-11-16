@@ -16,9 +16,9 @@ const storage = {
   },
   getItem: async (key) => {
     if (Platform.OS === "web") {
-      return AsyncStorage.getItem(key);
+      return await AsyncStorage.getItem(key);
     } else {
-      return SecureStore.getItemAsync(key);
+      return await SecureStore.getItemAsync(key);
     }
   },
 };
@@ -72,7 +72,7 @@ export async function login({ email, password }) {
     throw new Error(message);
   }
 
-  await storage.setItem("token", data.access_token);
+  await storage.setItem("token", String(data.access_token));
 
   return data;
 }
