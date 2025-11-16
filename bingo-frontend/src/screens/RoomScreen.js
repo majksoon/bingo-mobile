@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Card, Text, TextInput } from "react-native-paper";
+import * as api from "../api/chat.js"
+import {storage} from "../api/auth.js"
 
 const SIZE = 5;
 
@@ -40,6 +42,7 @@ export default function RoomScreen({ route, navigation }) {
     category: "sport",
   };
 
+
   // wybór zestawu zadań
   const categoryKey =
     room.category === "nauka" || room.category === "sport"
@@ -54,9 +57,11 @@ export default function RoomScreen({ route, navigation }) {
 
   const [selected, setSelected] = useState(new Set());
 
+  const [uid, setUid] = useState(Number);
+
   // chat
   const [messages, setMessages] = useState([
-    { id: "1", author: "System", text: "Witaj w pokoju!", time: "12:00" },
+    { id: "1", user_id: 0, username: "System", content: "Witaj w pokoju!", created_at: "12:00" },
   ]);
   const [chatText, setChatText] = useState("");
 
@@ -68,6 +73,20 @@ export default function RoomScreen({ route, navigation }) {
     });
   }
 
+  function loadMessages() {
+    api.getMessages(room.id).then((messages) => {
+      setMessages(messages);
+    })
+
+  }
+
+  useEffect(() => {
+    storage.getItem("uid").then((id) => {setUid(id)});
+    loadMessages();
+    const int = setInterval(loadMessages, 10000)
+    return () => {clearInterval(int)}
+  }, [])
+
   function sendMessage() {
     if (!chatText.trim()) return;
 
@@ -77,15 +96,11 @@ export default function RoomScreen({ route, navigation }) {
       minute: "2-digit",
     });
 
-    const newMessage = {
-      id: String(messages.length + 1),
-      author: "Ty",
-      text: chatText.trim(),
-      time,
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
-    setChatText("");
+    console.log(room.id)
+    api.sendMessage(chatText.trim(), room.id).then((data) => {
+      setMessages((prev) => [...prev, data]);
+      setChatText("");
+    })
   }
 
   return (
@@ -159,15 +174,15 @@ export default function RoomScreen({ route, navigation }) {
               <View
                 style={[
                   styles.messageBubble,
-                  item.author === "Ty"
+                  item.user_id == uid
                     ? styles.messageBubbleMe
                     : styles.messageBubbleOther,
                 ]}
               >
                 <Text style={styles.messageAuthor}>
-                  {item.author} • {item.time}
+                  {item.username} • {item.created_at}
                 </Text>
-                <Text style={styles.messageText}>{item.text}</Text>
+                <Text style={styles.messageText}>{item.content}</Text>
               </View>
             )}
           />

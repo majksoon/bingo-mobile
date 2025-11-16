@@ -78,27 +78,12 @@ export default function RoomsScreen({ navigation }) {
 
     try {
       const joined = await joinRoom(roomToJoin.id, joinPassword);
-			 
-	 
-
       setJoinVisible(false);
       
       navigation.navigate("Room", { room: joined });
     } catch (err) {
       alert(err.message);
     }
-
-											   
-																		   
-					  
-																 
-	  
-
-						  
-
-													  
-													   
-													   
   }
 
   function openCreateDialog() {

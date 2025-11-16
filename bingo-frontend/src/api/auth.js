@@ -2,11 +2,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-const API_URL =
+export const API_URL =
   Platform.OS === "web" ? "http://localhost:8000" : "http://10.0.2.2:8000";
 // localhost - web, 10.0.2.2 - emulator w Android Studio
 
-const storage = {
+export const storage = {
   setItem: async (key, value) => {
     if (Platform.OS === "web") {
       await AsyncStorage.setItem(key, value);
@@ -73,6 +73,7 @@ export async function login({ email, password }) {
   }
 
   await storage.setItem("token", String(data.access_token));
+  await storage.setItem("uid", data.id);
 
   return data;
 }
