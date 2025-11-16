@@ -15,7 +15,7 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
         raise HTTPException(
-            status_code=409, detail="User with this email already exists"
+            status_code=409, detail="Adres email jest przypisany do istniejącego konta"
         )
 
     user = models.User(
@@ -30,10 +30,10 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=schemas.Token)
-def login(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+def login(payload: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Nieprawidłowy email lub hasło")
 
     token = create_access_token({"sub": user.id})
     return {"access_token": token, "token_type": "bearer"}

@@ -21,6 +21,12 @@ class UserCreate(BaseModel):
         return v
 
 
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+
 class UserOut(BaseModel):
     id: int
     email: EmailStr

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { Button, Card, Text, TextInput } from "react-native-paper";
+import { login, register } from "../api/auth";
 
 export default function AuthScreen({ navigation }) {
   const [mode, setMode] = useState("login"); // 👈 zwykły JS, bez <"login" | "register">
@@ -9,9 +10,18 @@ export default function AuthScreen({ navigation }) {
 
   const title = mode === "login" ? "Logowanie" : "Rejestracja";
 
-  function handleSubmit() {
-    // TODO: tu później podpinacie backend (login / register)
-    navigation.navigate("Rooms");
+  async function handleSubmit() {
+    try {
+      if (mode === "login") {
+        await login({ email, password });
+      } else {
+        await register({ email, password, username: email.split("@")[0] });
+      }
+
+      navigation.navigate("Rooms");
+    } catch (err) {
+      alert(err.message);
+    }
   }
 
   return (
