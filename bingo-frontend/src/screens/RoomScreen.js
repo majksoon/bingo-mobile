@@ -85,12 +85,6 @@ export default function RoomScreen({ route, navigation }) {
       });
       setBoardTasks(boardTasks);
       setBoardTasksObj(baseTasks);
-      const set = new Set();
-      for (let i = 0; i < baseTasks.length; i++) {
-        if (baseTasks[i].finished_by !== null)
-          set.add(i);
-      }
-      setSelected(set);
     });
 
     storage.getItem("uid").then((id) => {setUid(id)});
@@ -144,11 +138,10 @@ export default function RoomScreen({ route, navigation }) {
                 {Array.from({ length: SIZE }).map((_, col) => {
                   const index = row * SIZE + col;
                   const task = boardTasksObj[index];
-                  const isActive = false;
                   const taskLabel = task ? task.description : "Loading"
                   let textStyle = styles.cellText;
                   let cellStyle = null
-                  if (task && uid == task.finished_by) {
+                  if ((task && uid == task.finished_by) || selected.has(index)) {
                     textStyle = styles.cellTextActive;
                     cellStyle = styles.cellActive;
                   } else if (task && task.finished_by) {
