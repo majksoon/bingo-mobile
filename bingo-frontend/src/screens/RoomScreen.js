@@ -126,7 +126,7 @@ export default function RoomScreen({ route, navigation }) {
             {room.category === "Sport" ? "Sport" : "Nauka"}
           </Text>
           <Text variant="bodyMedium" style={styles.infoText}>
-            Uczestnicy: {room.players}/{room.max}
+            Uczestnicy: {room.players_count}/5
           </Text>
         </Card.Content>
       </Card>
