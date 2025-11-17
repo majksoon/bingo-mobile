@@ -113,4 +113,4 @@ class TaskOut(BaseModel):
     finished_by: Optional[int]
 
 class TaskFinished(BaseModel):
-    status: str
+    game_finished: bool

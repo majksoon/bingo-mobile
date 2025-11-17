@@ -167,6 +167,48 @@ def room_finish_task(
         raise HTTPException(status_code=403, detail="Task already finished")
 
     assignment.finishing_uid = user.id
+    results = (
+        db.query(models.TaskAssignment, models.Task).join(models.Task)
+        .filter(models.TaskAssignment.room_id == room_id)
+        .order_by(models.TaskAssignment.id)
+    ).all()
+    print(results)
+
+    w_id = None
+    map_2d = [list(map(lambda x: x[0].finishing_uid, row)) for row in itertools.batched(results, 5)]
+    for row in map_2d:
+        # check rows
+        if len(w_id_set:=set(row)) == 1 and None not in w_id_set:
+            break
+    else:
+        for i in range(len(map_2d)):
+            # check columns
+            col = [row[i] for row in map_2d]
+            if len(w_id_set:=set(col)) == 1 and None not in w_id_set:
+                break
+        else:
+            # check diagonals
+            diag1 = [row[i] for i, row in enumerate(map_2d)]
+            if not len(w_id_set:=set(diag1)) == 1 or None in w_id_set:
+                diag2 = [row[-i -1 ] for i, row in enumerate(map_2d)]
+                if not len(w_id_set:=set(diag2)) == 1 or None in w_id_set:
+                    w_id_set = set([None])
+
+    w_id = list(w_id_set)[0]
+    if w_id:
+        user.games_won += 1
+        room_users = (
+            db.query(models.Room, models.RoomMember, models.User)
+            .select_from(models.Room).join(models.RoomMember).join(models.User)
+            .filter(models.Room.id == room_id)
+        ).all()
+        for room, member, user in room_users:
+            user.games_played += 1
+
+        db.commit()
+        return schemas.TaskFinished(game_finished=True)
+
+
     db.commit()
-    return schemas.TaskFinished(status="OK")
+    return schemas.TaskFinished(game_finished=False)
 
