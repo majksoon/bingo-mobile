@@ -133,7 +133,7 @@ export default function RoomsScreen({ navigation }) {
           <Card style={styles.card} onPress={() => askForPassword(item)}>
             <Card.Title
               title={item.name}
-              subtitle={`${item.players}/${item.max_players} uczestników • ${
+              subtitle={`${item.players_count}/5 uczestników • ${
                 item.category === "Sport" ? "Sport" : "Nauka"
               }`}
               left={(props) => <Avatar.Icon {...props} icon="lock" />}
