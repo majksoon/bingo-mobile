@@ -16,6 +16,7 @@ export default function AuthScreen({ navigation }) {
         await login({ email, password });
       } else {
         await register({ email, password, username: email.split("@")[0] });
+        await login({ email, password });
       }
 
       navigation.navigate("Rooms");

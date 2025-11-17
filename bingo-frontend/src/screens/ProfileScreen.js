@@ -1,21 +1,53 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Avatar, Button, Card, Divider, Text } from "react-native-paper";
+import {
+  Avatar,
+  Button,
+  Card,
+  Dialog,
+  Divider,
+  Portal,
+  Text,
+  TextInput,
+} from "react-native-paper";
+import { getProfile, updateProfile } from "../api/profile";
 
 export default function ProfileScreen({ navigation }) {
-  // TODO: te dane backend łatwo podmieni z API
-  const email = "user@example.com";
-  const nick = "Gracz123";
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editVisible, setEditVisible] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
 
-  const stats = {
-    gamesPlayed: 24,
-    gamesWon: 7,
-    roomsCreated: 5,
-  };
+  async function loadProfile() {
+    try {
+      const data = await getProfile();
+      setProfile(data);
+    } catch {
+      alert("Nie udało się załadować profilu.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveUsername() {
+    try {
+      const updated = await updateProfile({ username: newUsername });
+      setProfile(updated);
+      setEditVisible(false);
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  if (loading) return <Text>Ładowanie...</Text>;
 
   const winRate =
-    stats.gamesPlayed > 0
-      ? Math.round((stats.gamesWon / stats.gamesPlayed) * 100)
+    profile.games_played > 0
+      ? Math.round((profile.games_won / profile.games_played) * 100)
       : 0;
 
   return (
@@ -23,12 +55,12 @@ export default function ProfileScreen({ navigation }) {
       <Card style={styles.card}>
         <Card.Content style={styles.content}>
           {/* Avatar + podstawowe dane */}
-          <Avatar.Text size={72} label={nick[0].toUpperCase()} />
+          <Avatar.Text size={72} label={profile.username?.[0]?.toUpperCase() || "?"} />
           <Text variant="headlineSmall" style={styles.nick}>
-            {nick}
+            {profile.username}
           </Text>
           <Text variant="bodyMedium" style={styles.email}>
-            {email}
+            {profile.email}
           </Text>
 
           <Divider style={{ marginVertical: 12, alignSelf: "stretch" }} />
@@ -40,28 +72,28 @@ export default function ProfileScreen({ navigation }) {
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Text variant="headlineSmall">{stats.gamesPlayed}</Text>
+              <Text variant="headlineSmall" style={styles.statText}>{profile.games_played}</Text>
               <Text variant="bodySmall" style={styles.statLabel}>
                 rozegranych gier
               </Text>
             </View>
             <View style={styles.statBox}>
-              <Text variant="headlineSmall">{stats.gamesWon}</Text>
+              <Text variant="headlineSmall" style={styles.statText}>{profile.games_won}</Text>
               <Text variant="bodySmall" style={styles.statLabel}>
                 wygrane
               </Text>
             </View>
             <View style={styles.statBox}>
-              <Text variant="headlineSmall">{winRate}%</Text>
+              <Text variant="headlineSmall" style={styles.statText}>{winRate}%</Text>
               <Text variant="bodySmall" style={styles.statLabel}>
-                winrate
+                wsp. wygranych
               </Text>
             </View>
           </View>
 
           <View style={styles.statsRow}>
             <View style={styles.statBoxWide}>
-              <Text variant="headlineSmall">{stats.roomsCreated}</Text>
+              <Text variant="headlineSmall" style={styles.statText}>{profile.rooms_created}</Text>
               <Text variant="bodySmall" style={styles.statLabel}>
                 utworzone pokoje
               </Text>
@@ -75,10 +107,11 @@ export default function ProfileScreen({ navigation }) {
             mode="outlined"
             style={styles.button}
             onPress={() => {
-              // tutaj backendowiec może podpiąć edycję profilu
+              setNewUsername(profile.username || "");
+              setEditVisible(true);
             }}
           >
-            Edytuj profil (mock)
+            Edytuj profil
           </Button>
 
           <Button
@@ -90,6 +123,24 @@ export default function ProfileScreen({ navigation }) {
           </Button>
         </Card.Content>
       </Card>
+
+      {/* Edycja nicku */}
+      <Portal>
+        <Dialog visible={editVisible} onDismiss={() => setEditVisible(false)}>
+          <Dialog.Title>Edytuj nazwę użykownika</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Nazwa"
+              value={newUsername}
+              onChangeText={setNewUsername}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setEditVisible(false)}>Anuluj</Button>
+            <Button onPress={saveUsername}>Zapisz</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -143,10 +194,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f172a",
     alignItems: "center",
   },
+  statText: {
+    color: "white",
+  },
   statLabel: {
     marginTop: 2,
     opacity: 0.8,
     textAlign: "center",
+    color: "white",
   },
   button: {
     marginTop: 8,

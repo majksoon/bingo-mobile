@@ -73,7 +73,7 @@ export async function login({ email, password }) {
   }
 
   await storage.setItem("token", String(data.access_token));
-  await storage.setItem("uid", data.id);
+  await storage.setItem("uid", String(data.id));
 
   return data;
 }
