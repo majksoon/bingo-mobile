@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import itertools
 
 from .. import models, schemas
 from ..db import get_db
@@ -123,7 +124,7 @@ def join_room(
 
 
 @router.get("/{room_id}/tasks", response_model=list[schemas.TaskOut])
-def join_room(
+def room_tasks(
     room_id: int,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
@@ -147,7 +148,7 @@ def join_room(
     ]
 
 @router.get("/{room_id}/tasks/{asg_id}/finished", response_model=schemas.TaskFinished)
-def join_room(
+def room_finish_task(
     room_id: int,
     asg_id: int,
     db: Session = Depends(get_db),
