@@ -57,12 +57,15 @@ export default function RoomScreen({ route, navigation }) {
   const [chatText, setChatText] = useState("");
 
   function toggleCell(index) {
-    room_api.finishTask(room.id, boardTasksObj[index].assignment_id).then(() => {
+    room_api.finishTask(room.id, boardTasksObj[index].assignment_id).then((data) => {
       setSelected((prev) => {
         const set = new Set(prev);
         set.has(index) ? set.delete(index) : set.add(index);
         return set;
       });
+      if (data.game_finished) {
+        alert("Wygrałeś");
+      }
     }).catch((err) => {
       alert(err.message);
     })
