@@ -168,9 +168,6 @@ export default function RoomScreen({ route, navigation }) {
         </Card.Content>
         <Card.Actions style={styles.actions}>
           <Button onPress={() => navigation.goBack()}>Wróć</Button>
-          <Button mode="contained" onPress={() => {}}>
-            Zgłoś Bingo
-          </Button>
         </Card.Actions>
       </Card>
 
