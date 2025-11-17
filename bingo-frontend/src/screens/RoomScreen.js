@@ -143,18 +143,26 @@ export default function RoomScreen({ route, navigation }) {
               <View style={styles.row} key={row}>
                 {Array.from({ length: SIZE }).map((_, col) => {
                   const index = row * SIZE + col;
-                  const taskLabel = boardTasks[index];
-                  const isActive = selected.has(index);
+                  const task = boardTasksObj[index];
+                  const isActive = false;
+                  const taskLabel = task ? task.description : "Loading"
+                  let textStyle = styles.cellText;
+                  let cellStyle = null
+                  if (task && uid == task.finished_by) {
+                    textStyle = styles.cellTextActive;
+                    cellStyle = styles.cellActive;
+                  } else if (task && task.finished_by) {
+                    textStyle = styles.cellTextActive;
+                    cellStyle = styles.cellEnemy;
+                  }
                   return (
                     <TouchableOpacity
                       key={index}
-                      style={[styles.cell, isActive && styles.cellActive]}
+                      style={[styles.cell, cellStyle]}
                       onPress={() => toggleCell(index)}
                     >
                       <Text
-                        style={
-                          isActive ? styles.cellTextActive : styles.cellText
-                        }
+                        style={cellStyle}
                         numberOfLines={2}
                       >
                         {taskLabel}
@@ -257,6 +265,10 @@ const styles = StyleSheet.create({
   cellActive: {
     backgroundColor: "#22c55e",
     borderColor: "#16a34a",
+  },
+  cellEnemy: {
+    backgroundColor: "#aa1417",
+    borderColor: "#aa1417",
   },
   cellText: {
     color: "white",
