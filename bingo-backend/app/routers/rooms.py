@@ -156,6 +156,9 @@ def room_finish_task(
 ):
     room = db.get(models.Room, room_id)
     ensure_member(db, room.id, user.id)
+    
+    if room.done:
+        raise HTTPException(status_code=418, detail="The game is finished")
 
     assignment, task = (
         db.query(models.TaskAssignment, models.Task).join(models.Task)
@@ -172,7 +175,6 @@ def room_finish_task(
         .filter(models.TaskAssignment.room_id == room_id)
         .order_by(models.TaskAssignment.id)
     ).all()
-    print(results)
 
     w_id = None
     map_2d = [list(map(lambda x: x[0].finishing_uid, row)) for row in itertools.batched(results, 5)]
@@ -205,6 +207,7 @@ def room_finish_task(
         for room, member, user in room_users:
             user.games_played += 1
 
+        room.done = True
         db.commit()
         return schemas.TaskFinished(game_finished=True)
 

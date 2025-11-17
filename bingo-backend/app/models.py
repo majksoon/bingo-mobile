@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CheckConstraint, event
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CheckConstraint, event, Boolean
 from sqlalchemy.orm import relationship
 from .db import Base
 from .tasks import NAUKA_TASKS, SPORT_TASKS
@@ -29,6 +29,7 @@ class Room(Base):
     category = Column(String, nullable=False)
     max_players = Column(Integer, default=5, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    done = Column(Boolean, default=False, nullable=False)
 
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     owner = relationship("User", back_populates="rooms")

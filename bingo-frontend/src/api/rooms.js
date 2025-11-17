@@ -120,8 +120,13 @@ export async function finishTask(roomId, taskId) {
     },
   });
   
-  if (res.status != 200) {
-    throw new Error("Już ukończono zadanie")
+  switch (res.status) {
+    case 200:
+      break;
+    case 403:
+      throw new Error("Już ukończono zadanie");
+    case 418:
+      throw new Error("Gra jest już ukończona");
   }
   return await res.json()
 }
