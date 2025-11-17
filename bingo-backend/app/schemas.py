@@ -99,3 +99,27 @@ class ProfileOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TaskOut(BaseModel):
+    assignment_id: int
+    description: str
+    finished_by: Optional[int]
+
+class TaskFinished(BaseModel):
+    status: str
+
+
+# ===== Profile =====
+
+
+class ProfileOut(BaseModel):
+    id: int
+    email: EmailStr
+    username: Optional[str]
+    games_played: int
+    games_won: int
+    winrate: float
+
+    class Config:
+        from_attributes = True

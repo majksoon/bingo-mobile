@@ -94,3 +94,34 @@ export async function joinRoom(roomId, password) {
 
   return data;
 }
+
+export async function getTasks(roomId) {
+  const token = await getToken();
+
+  const res = await fetch(`${API_URL}/rooms/${roomId}/tasks`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return await res.json()
+}
+
+export async function finishTask(roomId, taskId) {
+  const token = await getToken();
+
+  const res = await fetch(`${API_URL}/rooms/${roomId}/tasks/${taskId}/finished`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  if (res.status != 200) {
+    throw new Error("Już ukończono zadanie")
+  }
+  return await res.json()
+}

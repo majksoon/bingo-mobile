@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Card, Text, TextInput } from "react-native-paper";
 import * as api from "../api/chat.js"
+import * as room_api from "../api/rooms.js"
 import {storage} from "../api/auth.js"
 
 const SIZE = 5;
@@ -42,18 +43,8 @@ export default function RoomScreen({ route, navigation }) {
     category: "sport",
   };
 
-
-  // wybór zestawu zadań
-  const categoryKey =
-    room.category === "nauka" || room.category === "sport"
-      ? room.category
-      : "sport";
-  const baseTasks = TASKS_BY_CATEGORY[categoryKey] || TASKS_BY_CATEGORY.sport;
-
-  // tworzymy 25 pól z zadaniami (jak mniej zadań, to się powtarzają)
-  const boardTasks = Array.from({ length: SIZE * SIZE }, (_, i) => {
-    return baseTasks[i % baseTasks.length];
-  });
+  const [boardTasks, setBoardTasks] = useState(new Array());
+  const [boardTasksObj, setBoardTasksObj] = useState(new Array());
 
   const [selected, setSelected] = useState(new Set());
 
@@ -66,11 +57,15 @@ export default function RoomScreen({ route, navigation }) {
   const [chatText, setChatText] = useState("");
 
   function toggleCell(index) {
-    setSelected((prev) => {
-      const set = new Set(prev);
-      set.has(index) ? set.delete(index) : set.add(index);
-      return set;
-    });
+    room_api.finishTask(room.id, boardTasksObj[index].assignment_id).then(() => {
+      setSelected((prev) => {
+        const set = new Set(prev);
+        set.has(index) ? set.delete(index) : set.add(index);
+        return set;
+      });
+    }).catch((err) => {
+      alert(err.message);
+    })
   }
 
   function loadMessages() {
@@ -81,6 +76,20 @@ export default function RoomScreen({ route, navigation }) {
   }
 
   useEffect(() => {
+    room_api.getTasks(room.id).then((baseTasks) => {
+      const boardTasks = Array.from({ length: SIZE * SIZE }, (_, i) => {
+        return baseTasks[i % baseTasks.length].description;
+      });
+      setBoardTasks(boardTasks);
+      setBoardTasksObj(baseTasks);
+      const set = new Set();
+      for (let i = 0; i < baseTasks.length; i++) {
+        if (baseTasks[i].finished_by !== null)
+          set.add(i);
+      }
+      setSelected(set);
+    });
+
     storage.getItem("uid").then((id) => {setUid(id)});
     loadMessages();
     const int = setInterval(loadMessages, 10000)

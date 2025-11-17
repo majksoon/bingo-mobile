@@ -1,7 +1,8 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CheckConstraint, event
 from sqlalchemy.orm import relationship
 from .db import Base
+from .tasks import NAUKA_TASKS, SPORT_TASKS
 
 
 class User(Base):
@@ -63,3 +64,40 @@ class Message(Base):
 
     room = relationship("Room", back_populates="messages")
     user = relationship("User", back_populates="messages")
+
+class Task(Base):
+    __tablename__ = "tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    description = Column(String, nullable=False)
+    category = Column(Integer, CheckConstraint("category IN ('Nauka', 'Sport')"), nullable=False)
+
+def insert_data(target, connection, **kw):
+    data = []
+    for i in range(1, 101):
+        if i <= 50:
+            category = 'Nauka'
+            description = NAUKA_TASKS[i-1]  # -1 bo lista jest od 0
+        else:
+            category = 'Sport'
+            description = SPORT_TASKS[i-51]  # -51 bo zaczynamy od 0 dla Sport
+            
+        data.append({
+            'id': i,
+            'description': description,
+            'category': category
+        })
+    
+    connection.execute(target.insert(), data)
+
+event.listen(Task.__table__, 'after_create', insert_data)
+
+class TaskAssignment(Base):
+    __tablename__ = "assignments"
+    id = Column(Integer, primary_key=True, index=True)
+    # Null uid means not finished
+    finishing_uid = Column(Integer, ForeignKey("users.id"), nullable=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)
+
+
+

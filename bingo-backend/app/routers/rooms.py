@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from .. import models, schemas
 from ..db import get_db
 from ..security import get_current_user, hash_password, verify_password
 from pydantic import BaseModel
+from .chat import ensure_member
 
 class JoinRoomPayload(BaseModel):
     password: str | None = None
@@ -49,6 +51,16 @@ def create_room(
     db.commit()
     db.refresh(room)
 
+    random_tasks = (
+        db.query(models.Task)
+        .filter(models.Task.category == payload.category)
+        .order_by(func.random()).limit(25).all()
+    )
+
+    for task in random_tasks:
+        member = models.TaskAssignment(finishing_uid=None, room_id=room.id, task_id=task.id)
+        db.add(member)
+    db.commit()
     # automatycznie dodaj twórcę do pokoju
     member = models.RoomMember(room_id=room.id, user_id=user.id)
     db.add(member)
@@ -108,3 +120,52 @@ def join_room(
         max_players=room.max_players,
         players_count=len(room.members),
     )
+
+
+@router.get("/{room_id}/tasks", response_model=list[schemas.TaskOut])
+def join_room(
+    room_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    room = db.get(models.Room, room_id)
+    ensure_member(db, room.id, user.id)
+
+    tasks = (
+        db.query(models.TaskAssignment, models.Task).join(models.Task)
+        .filter(models.TaskAssignment.room_id == room.id)
+        .order_by(models.TaskAssignment.id).all()
+    )
+
+    return [
+            schemas.TaskOut(
+                assignment_id=assignment.id,
+                description=task.description,
+                finished_by=assignment.finishing_uid
+            )
+            for assignment, task in tasks
+    ]
+
+@router.get("/{room_id}/tasks/{asg_id}/finished", response_model=schemas.TaskFinished)
+def join_room(
+    room_id: int,
+    asg_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    room = db.get(models.Room, room_id)
+    ensure_member(db, room.id, user.id)
+
+    assignment, task = (
+        db.query(models.TaskAssignment, models.Task).join(models.Task)
+        .filter(models.TaskAssignment.id == asg_id)
+        .order_by(models.TaskAssignment.id)
+    ).first()
+    
+    if assignment.finishing_uid != None:
+        raise HTTPException(status_code=403, detail="Task already finished")
+
+    assignment.finishing_uid = user.id
+    db.commit()
+    return schemas.TaskFinished(status="OK")
+
