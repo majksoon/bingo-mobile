@@ -46,7 +46,7 @@ export default function RoomsScreen({ navigation }) {
   const [createVisible, setCreateVisible] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomPassword, setNewRoomPassword] = useState("");
-  const [newRoomCategory, setNewRoomCategory] = useState("sport");
+  const [newRoomCategory, setNewRoomCategory] = useState("Sport");
 
   // dialog dołączania (hasło)
   const [joinVisible, setJoinVisible] = useState(false);
@@ -89,7 +89,7 @@ export default function RoomsScreen({ navigation }) {
   function openCreateDialog() {
     setNewRoomName("");
     setNewRoomPassword("");
-    setNewRoomCategory("sport");
+    setNewRoomCategory("Sport");
     setCreateVisible(true);
   }
 
@@ -134,7 +134,7 @@ export default function RoomsScreen({ navigation }) {
             <Card.Title
               title={item.name}
               subtitle={`${item.players}/${item.max_players} uczestników • ${
-                item.category === "sport" ? "Sport" : "Nauka"
+                item.category === "Sport" ? "Sport" : "Nauka"
               }`}
               left={(props) => <Avatar.Icon {...props} icon="lock" />}
             />
@@ -185,15 +185,15 @@ export default function RoomsScreen({ navigation }) {
             </Text>
             <View style={styles.categoryRow}>
               <Button
-                mode={newRoomCategory === "sport" ? "contained" : "outlined"}
-                onPress={() => setNewRoomCategory("sport")}
+                mode={newRoomCategory === "Sport" ? "contained" : "outlined"}
+                onPress={() => setNewRoomCategory("Sport")}
                 style={styles.categoryButton}
               >
                 Sport
               </Button>
               <Button
-                mode={newRoomCategory === "nauka" ? "contained" : "outlined"}
-                onPress={() => setNewRoomCategory("nauka")}
+                mode={newRoomCategory === "Nauka" ? "contained" : "outlined"}
+                onPress={() => setNewRoomCategory("Nauka")}
                 style={styles.categoryButton}
               >
                 Nauka

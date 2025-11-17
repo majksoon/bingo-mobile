@@ -120,7 +120,7 @@ export default function RoomScreen({ route, navigation }) {
           <Text variant="titleMedium">{room.name}</Text>
           <Text variant="bodyMedium" style={styles.infoText}>
             Pokój #{room.id} • Kategoria:{" "}
-            {room.category === "sport" ? "Sport" : "Nauka"}
+            {room.category === "Sport" ? "Sport" : "Nauka"}
           </Text>
           <Text variant="bodyMedium" style={styles.infoText}>
             Uczestnicy: {room.players}/{room.max}
