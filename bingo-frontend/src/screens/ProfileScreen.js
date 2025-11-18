@@ -117,7 +117,12 @@ export default function ProfileScreen({ navigation }) {
           <Button
             mode="contained"
             style={styles.button}
-            onPress={() => navigation.navigate("Auth")}
+            onPress={() => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Auth" }],
+              });
+            }}
           >
             Wyloguj się
           </Button>

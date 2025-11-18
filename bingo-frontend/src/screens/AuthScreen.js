@@ -19,7 +19,11 @@ export default function AuthScreen({ navigation }) {
         await login({ email, password });
       }
 
-      navigation.navigate("Rooms");
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Rooms" }],
+      });
+
     } catch (err) {
       alert(err.message);
     }
