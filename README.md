@@ -56,6 +56,7 @@ Projekt składa się z mobilnego frontendu (React Native + Expo) oraz backendu (
 <ul>
   <li>FastAPI + Uvicorn</li>
   <li>SQLAlchemy ORM</li>
+  <li>SQLite</li>
   <li>Pydantic v2</li>
   <li>JWT (biblioteka <code>jose</code>)</li>
   <li>PBKDF2 jako metoda bezpiecznego haszowania haseł</li>
