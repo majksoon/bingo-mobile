@@ -1,227 +1,303 @@
-import React, { useEffect, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import React, { useCallback, useState } from "react";
 import {
-  Avatar,
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+} from "react-native";
+import {
   Button,
   Card,
-  Dialog,
   FAB,
   Portal,
+  Dialog,
   Text,
   TextInput,
+  RadioButton,
+  ActivityIndicator,
 } from "react-native-paper";
-import { createRoom, joinRoom, listRooms } from "../api/rooms";
-														  
-					   
-   
-			
-							
-			   
-		   
-						
-					  
-	
-   
-			
-					
-			   
-		   
-						
-					  
-	
-   
-			
-						 
-			   
-		   
-					  
-					  
-	
-  
+import { useFocusEffect } from "@react-navigation/native";
+import { listRooms, createRoom, joinRoom } from "../api/rooms";
 
 export default function RoomsScreen({ navigation }) {
   const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   // dialog tworzenia pokoju
   const [createVisible, setCreateVisible] = useState(false);
-  const [newRoomName, setNewRoomName] = useState("");
-  const [newRoomPassword, setNewRoomPassword] = useState("");
-  const [newRoomCategory, setNewRoomCategory] = useState("Sport");
+  const [roomName, setRoomName] = useState("");
+  const [roomPassword, setRoomPassword] = useState("");
+  const [roomCategory, setRoomCategory] = useState("Nauka");
+  const [creating, setCreating] = useState(false);
 
-  // dialog dołączania (hasło)
+  // dialog dołączania (przy pokojach z hasłem)
   const [joinVisible, setJoinVisible] = useState(false);
-  const [roomToJoin, setRoomToJoin] = useState(null);
   const [joinPassword, setJoinPassword] = useState("");
+  const [joiningRoom, setJoiningRoom] = useState(null);
+  const [joining, setJoining] = useState(false);
 
-  async function loadRooms() {
+  // ====== ŁADOWANIE POKOI ======
+
+  const loadRooms = useCallback(async () => {
     try {
+      setError(null);
       const data = await listRooms();
       setRooms(data);
-    } catch (err) {
-      alert(err.message || "Failed to load rooms");
+    } catch (e) {
+      console.log("listRooms error", e);
+      setError(e.message || "Nie udało się pobrać pokoi");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
-
-  useEffect(() => {
-    loadRooms();
   }, []);
 
-  // Dołączanie
-  function askForPassword(room) {
-    setRoomToJoin(room);
-    setJoinPassword("");
-    setJoinVisible(true);
-  }
+  // auto-refresh gdy ekran jest w focusie
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
 
-  async function confirmJoin() {
-    if (!roomToJoin) return;
+      const tick = async () => {
+        if (!active) return;
+        await loadRooms();
+      };
 
-    try {
-      const joined = await joinRoom(roomToJoin.id, joinPassword);
-      setJoinVisible(false);
-      
-      navigation.navigate("Room", { room: joined });
-    } catch (err) {
-      alert(err.message);
-    }
-  }
+      // pierwszy strzał po wejściu na ekran
+      tick();
 
-  function openCreateDialog() {
-    setNewRoomName("");
-    setNewRoomPassword("");
-    setNewRoomCategory("Sport");
-    setCreateVisible(true);
-  }
+      // co ~3 sekundy odświeżaj listę dla każdego użytkownika osobno
+      const id = setInterval(tick, 3000);
 
-  async function createRoomHandler() {
-    if (!newRoomName.trim()) {
+      return () => {
+        active = false;
+        clearInterval(id);
+      };
+    }, [loadRooms])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadRooms();
+  }, [loadRooms]);
+
+  // ====== TWORZENIE POKOJU ======
+
+  async function handleCreateRoom() {
+    if (!roomName.trim()) {
       alert("Podaj nazwę pokoju");
       return;
     }
-    if (!newRoomPassword.trim()) {
-      alert("Ustaw hasło do pokoju");
-      return;
-    }
 
+    setCreating(true);
     try {
       await createRoom({
-        name: newRoomName.trim(),
-									 
-			 
-        password: newRoomPassword.trim(),
-        category: newRoomCategory,
+        name: roomName.trim(),
+        password: roomPassword.trim() || null,
+        category: roomCategory, // "Nauka" albo "Sport"
       });
 
       setCreateVisible(false);
-      loadRooms(); // odświeża listę
-    } catch (err) {
-      alert(err.message);
+      setRoomName("");
+      setRoomPassword("");
+
+      // po utworzeniu odśwież listę
+      await loadRooms();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setCreating(false);
     }
   }
 
+  // ====== DOŁĄCZANIE DO POKOJU ======
+
+  async function doJoinRoom(room, passwordOrNull) {
+    setJoining(true);
+    setJoiningRoom(room);
+    try {
+      // używamy odpowiedzi z backendu (świeży players_count itd.)
+      const joinedRoom = await joinRoom(room.id, passwordOrNull);
+      setJoinVisible(false);
+      setJoinPassword("");
+
+      // po udanym join → przejście do RoomScreen z AKTUALNYM roomem
+      navigation.navigate("Room", { room: joinedRoom });
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  function handleOpenRoom(room) {
+    if (room.has_password) {
+      // trzeba zapytać o hasło
+      setJoiningRoom(room);
+      setJoinPassword("");
+      setJoinVisible(true);
+    } else {
+      // pokój bez hasła – od razu join
+      doJoinRoom(room, null);
+    }
+  }
+
+  // ====== RENDER POZYCJI LISTY ======
+
+  function renderRoom({ item }) {
+    return (
+      <Card
+        style={styles.roomCard}
+        onPress={() => handleOpenRoom(item)}
+      >
+        <Card.Title title={item.name} />
+        <Card.Content>
+          <Text>
+            Kategoria: {item.category === "Sport" ? "Sport" : "Nauka"}
+          </Text>
+          <Text>
+            Gracze: {item.players_count}/{item.max_players}
+          </Text>
+          {item.has_password && (
+            <Text style={styles.lockText}>Pokój z hasłem</Text>
+          )}
+        </Card.Content>
+        <Card.Actions>
+          <Button onPress={() => handleOpenRoom(item)}>
+            Wejdź
+          </Button>
+        </Card.Actions>
+      </Card>
+    );
+  }
+
+  // ====== UI ======
+
+  if (loading && rooms.length === 0) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+        <Text style={{ marginTop: 8 }}>Ładowanie pokoi.</Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text variant="headlineMedium" style={styles.title}>
-        Pokoje Bingo
-      </Text>
+    <View style={styles.screen}>
+      {error && (
+        <Text style={styles.errorText}>
+          {error}
+        </Text>
+      )}
 
       <FlatList
         data={rooms}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Card style={styles.card} onPress={() => askForPassword(item)}>
-            <Card.Title
-              title={item.name}
-              subtitle={`${item.players_count}/5 uczestników • ${
-                item.category === "Sport" ? "Sport" : "Nauka"
-              }`}
-              left={(props) => <Avatar.Icon {...props} icon="lock" />}
-            />
-            <Card.Actions>
-              <Button onPress={() => askForPassword(item)}>Dołącz</Button>
-            </Card.Actions>
-          </Card>
-        )}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderRoom}
+        contentContainerStyle={
+          rooms.length === 0 ? styles.emptyContainer : { paddingBottom: 80 }
+        }
+        ListEmptyComponent={
+          !loading && (
+            <Text style={styles.emptyText}>
+              Brak pokoi. Utwórz pierwszy!
+            </Text>
+          )
+        }
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
 
-      {/* FAB – tworzenie pokoju */}
+      {/* FAB do tworzenia pokoju */}
       <FAB
         icon="plus"
         style={styles.fab}
+        onPress={() => setCreateVisible(true)}
         label="Nowy pokój"
-        onPress={openCreateDialog}
       />
-
-      {/* Przycisk profil */}
-      <Button
-        mode="text"
-        onPress={() => navigation.navigate("Profile")}
-        style={styles.profileButton}
-      >
-        Profil
-      </Button>
 
       {/* Dialog tworzenia pokoju */}
       <Portal>
-        <Dialog visible={createVisible} onDismiss={() => setCreateVisible(false)}>
+        <Dialog
+          visible={createVisible}
+          onDismiss={() => !creating && setCreateVisible(false)}
+        >
           <Dialog.Title>Nowy pokój</Dialog.Title>
           <Dialog.Content>
             <TextInput
               label="Nazwa pokoju"
-              value={newRoomName}
-              onChangeText={setNewRoomName}
+              value={roomName}
+              onChangeText={setRoomName}
               style={{ marginBottom: 8 }}
             />
             <TextInput
-              label="Hasło (wymagane)"
-              value={newRoomPassword}
-              onChangeText={setNewRoomPassword}
+              label="Hasło (opcjonalne)"
+              value={roomPassword}
+              onChangeText={setRoomPassword}
               secureTextEntry
               style={{ marginBottom: 8 }}
             />
-            <Text style={{ marginBottom: 4, opacity: 0.8 }}>
-              Kategoria pokoju:
-            </Text>
-            <View style={styles.categoryRow}>
-              <Button
-                mode={newRoomCategory === "Sport" ? "contained" : "outlined"}
-                onPress={() => setNewRoomCategory("Sport")}
-                style={styles.categoryButton}
-              >
-                Sport
-              </Button>
-              <Button
-                mode={newRoomCategory === "Nauka" ? "contained" : "outlined"}
-                onPress={() => setNewRoomCategory("Nauka")}
-                style={styles.categoryButton}
-              >
-                Nauka
-              </Button>
-            </View>
+            <Text style={{ marginBottom: 4 }}>Kategoria</Text>
+            <RadioButton.Group
+              onValueChange={setRoomCategory}
+              value={roomCategory}
+            >
+              <View style={styles.radioRow}>
+                <RadioButton value="Nauka" />
+                <Text style={styles.radioLabel}>Nauka</Text>
+              </View>
+              <View style={styles.radioRow}>
+                <RadioButton value="Sport" />
+                <Text style={styles.radioLabel}>Sport</Text>
+              </View>
+            </RadioButton.Group>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setCreateVisible(false)}>Anuluj</Button>
-            <Button onPress={createRoomHandler}>Utwórz</Button>
+            <Button
+              onPress={() => !creating && setCreateVisible(false)}
+            >
+              Anuluj
+            </Button>
+            <Button onPress={handleCreateRoom} loading={creating}>
+              Utwórz
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
 
-      {/* Dialog wpisania hasła przy dołączaniu */}
+      {/* Dialog dołączania do pokoju z hasłem */}
       <Portal>
-        <Dialog visible={joinVisible} onDismiss={() => setJoinVisible(false)}>
-          <Dialog.Title>Podaj hasło do pokoju</Dialog.Title>
+        <Dialog
+          visible={joinVisible}
+          onDismiss={() => !joining && setJoinVisible(false)}
+        >
+          <Dialog.Title>
+            {joiningRoom ? `Dołącz do: ${joiningRoom.name}` : "Dołącz do pokoju"}
+          </Dialog.Title>
           <Dialog.Content>
             <TextInput
-              label="Hasło"
+              label="Hasło pokoju"
               value={joinPassword}
               onChangeText={setJoinPassword}
               secureTextEntry
             />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setJoinVisible(false)}>Anuluj</Button>
-            <Button onPress={confirmJoin}>Dołącz</Button>
+            <Button
+              onPress={() => !joining && setJoinVisible(false)}
+            >
+              Anuluj
+            </Button>
+            <Button
+              loading={joining}
+              onPress={() =>
+                joiningRoom && doJoinRoom(joiningRoom, joinPassword.trim())
+              }
+            >
+              Dołącz
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -230,38 +306,48 @@ export default function RoomsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    padding: 16,
     backgroundColor: "#020617",
+    padding: 12,
   },
-  title: {
-    color: "white",
-    marginBottom: 12,
+  center: {
+    flex: 1,
+    backgroundColor: "#020617",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  list: {
-    paddingBottom: 96,
-  },
-  card: {
-    marginBottom: 10,
+  roomCard: {
+    marginBottom: 8,
     borderRadius: 16,
-    overflow: "hidden",
+  },
+  lockText: {
+    marginTop: 4,
+    color: "#f97316",
+  },
+  emptyContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 80,
+  },
+  emptyText: {
+    color: "#e5e7eb",
+  },
+  errorText: {
+    color: "#f97316",
+    marginBottom: 8,
   },
   fab: {
     position: "absolute",
     right: 16,
-    bottom: 72,
-  },
-  profileButton: {
-    position: "absolute",
-    left: 16,
     bottom: 16,
   },
-  categoryRow: {
+  radioRow: {
     flexDirection: "row",
-    gap: 8,
+    alignItems: "center",
   },
-  categoryButton: {
-    flex: 1,
+  radioLabel: {
+    color: "white",
   },
 });

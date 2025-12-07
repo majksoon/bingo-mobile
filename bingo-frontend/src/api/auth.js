@@ -4,21 +4,44 @@ import { Platform } from "react-native";
 
 export const API_URL =
   Platform.OS === "web" ? "http://localhost:8000" : "http://10.0.2.2:8000";
-// localhost - web, 10.0.2.2 - emulator w Android Studio
 
+// WSPÓLNY STORAGE:
+// - na webie: sessionStorage (osobny token na każdą kartę/przeglądarkę)
+// - na emulatorze/telefonie: SecureStore
 export const storage = {
   setItem: async (key, value) => {
-    if (Platform.OS === "web") {
-      await AsyncStorage.setItem(key, value);
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      // per-tab, nie współdzielone między kartami
+      window.sessionStorage.setItem(key, value);
     } else {
-      await SecureStore.setItemAsync(key, value);
+      // natywne RN: SecureStore (AsyncStorage jako fallback)
+      try {
+        await SecureStore.setItemAsync(key, value);
+      } catch {
+        await AsyncStorage.setItem(key, value);
+      }
     }
   },
   getItem: async (key) => {
-    if (Platform.OS === "web") {
-      return await AsyncStorage.getItem(key);
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      return window.sessionStorage.getItem(key);
     } else {
-      return await SecureStore.getItemAsync(key);
+      try {
+        return await SecureStore.getItemAsync(key);
+      } catch {
+        return await AsyncStorage.getItem(key);
+      }
+    }
+  },
+  removeItem: async (key) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.sessionStorage.removeItem(key);
+    } else {
+      try {
+        await SecureStore.deleteItemAsync(key);
+      } catch {
+        await AsyncStorage.removeItem(key);
+      }
     }
   },
 };
@@ -39,13 +62,9 @@ export async function register({ email, password, username }) {
 
   if (!res.ok) {
     const message =
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Registration failed";
+      typeof data?.detail === "string" ? data.detail : "Registration failed";
     throw new Error(message);
   }
-
-  //await storage.setItem("token", data.access_token);
 
   return data;
 }
@@ -78,17 +97,36 @@ export async function login({ email, password }) {
   return data;
 }
 
+export async function logout() {
+  await storage.removeItem("token");
+  await storage.removeItem("uid");
+}
+
 export async function getToken() {
   return storage.getItem("token");
 }
 
 export async function authGet(path) {
   const token = await getToken();
+
   const res = await fetch(`${API_URL}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
-  if (!res.ok) throw new Error("Request failed");
-  return res.json();
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
+
+  if (!res.ok) {
+    const message =
+      typeof data?.detail === "string" ? data.detail : "Request failed";
+    throw new Error(message);
+  }
+
+  return data;
 }

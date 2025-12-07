@@ -1,117 +1,176 @@
 import React, { useState, useEffect } from "react";
 import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Button, Card, Text, TextInput } from "react-native-paper";
-import * as api from "../api/chat.js"
-import * as room_api from "../api/rooms.js"
-import {storage} from "../api/auth.js"
+import {
+  Avatar,
+  Button,
+  Card,
+  Dialog,
+  Divider,
+  Portal,
+  Text,
+  TextInput,
+} from "react-native-paper";
+import * as api from "../api/chat.js";
+import * as room_api from "../api/rooms.js";
+import { getProfile } from "../api/profile.js";
+import { storage } from "../api/auth.js";
 
 const SIZE = 5;
 
-// zadania zależne od kategorii – krótkie teksty, żeby mieściły się w kafelkach
-const TASKS_BY_CATEGORY = {
-  sport: [
-    "10 przysiadów",
-    "5 pompek",
-    "30s bieg w miejscu",
-    "10 brzuszków",
-    "30s plank",
-    "Dotknij palców stóp",
-    "Skok w dal z miejsca",
-    "5 pajacyków",
-    "Wejście po schodach",
-  ],
-  nauka: [
-    "Nowe słówko EN",
-    "Przeczytaj definicję",
-    "1 proste zad. z matmy",
-    "Powtórz wzór",
-    "Przeczytaj 1 akapit",
-    "Napisz krótką notatkę",
-    "Przepisz zdanie EN",
-    "Przejrzyj notatki",
-    "Zadanie z fizyki",
-  ],
-};
-
 export default function RoomScreen({ route, navigation }) {
-  // pokój przekazany z RoomsScreen
-  const room = route.params?.room ?? {
+  const roomParam = route.params?.room ?? {
     id: "X",
     name: "Pokój",
-    players: 0,
-    max: 5,
-    category: "sport",
+    players_count: 0,
+    max_players: 5,
+    category: "Sport",
   };
 
-  const [boardTasks, setBoardTasks] = useState(new Array());
-  const [boardTasksObj, setBoardTasksObj] = useState(new Array());
+  const [room] = useState(roomParam);
+  const [boardTasksObj, setBoardTasksObj] = useState([]);
+  const [uid, setUid] = useState(null);
 
-  const [selected, setSelected] = useState(new Set());
-
-  const [uid, setUid] = useState(Number);
-
-  // chat
   const [messages, setMessages] = useState([
-    { id: "1", user_id: 0, username: "System", content: "Witaj w pokoju!", created_at: "12:00" },
+    {
+      id: "1",
+      user_id: 0,
+      username: "System",
+      content: "Witaj w pokoju!",
+      created_at: "12:00",
+    },
   ]);
   const [chatText, setChatText] = useState("");
 
-  function toggleCell(index) {
-    room_api.finishTask(room.id, boardTasksObj[index].assignment_id).then((data) => {
-      setSelected((prev) => {
-        const set = new Set(prev);
-        set.has(index) ? set.delete(index) : set.add(index);
-        return set;
-      });
-      if (data.game_finished) {
-        alert("Wygrałeś");
-      }
-    }).catch((err) => {
-      alert(err.message);
-    })
+  // --- stan profilu w tym ekranie ---
+  const [profileVisible, setProfileVisible] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profile, setProfile] = useState(null);
+
+  async function loadTasks() {
+    try {
+      const baseTasks = await room_api.getTasks(room.id);
+      setBoardTasksObj(baseTasks);
+    } catch (e) {
+      console.log("getTasks error", e);
+    }
   }
 
   function loadMessages() {
-    api.getMessages(room.id).then((messages) => {
-      setMessages(messages);
-    })
-
+    api.getMessages(room.id).then((msgs) => {
+      setMessages(msgs);
+    });
   }
 
+  // ładowanie UID + auto-refresh planszy i chatu
   useEffect(() => {
-    room_api.getTasks(room.id).then((baseTasks) => {
-      const boardTasks = Array.from({ length: SIZE * SIZE }, (_, i) => {
-        return baseTasks[i % baseTasks.length].description;
-      });
-      setBoardTasks(boardTasks);
-      setBoardTasksObj(baseTasks);
+    let isMounted = true;
+
+    storage.getItem("uid").then((id) => {
+      if (isMounted && id != null) setUid(Number(id));
     });
 
-    storage.getItem("uid").then((id) => {setUid(id)});
+    loadTasks();
     loadMessages();
-    const int = setInterval(loadMessages, 10000)
-    return () => {clearInterval(int)}
-  }, [])
+
+    const tasksInterval = setInterval(loadTasks, 2500);
+    const chatInterval = setInterval(loadMessages, 2500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(tasksInterval);
+      clearInterval(chatInterval);
+    };
+  }, [room.id]);
+
+  // --- obsługa kliknięcia kafelka ---
+
+  function toggleCell(index) {
+    const task = boardTasksObj[index];
+    if (!task) return;
+
+    room_api
+      .finishTask(room.id, task.assignment_id)
+      .then((data) => {
+        loadTasks();
+
+        if (!data.game_finished) return;
+
+        const isMe =
+          data.winner_id &&
+          uid != null &&
+          Number(data.winner_id) === Number(uid);
+
+        if (data.win_type === "bingo") {
+          if (isMe) {
+            alert(
+              `Wygrałeś! Zdobyłeś bingo.\n(Liczba zajętych pól: ${
+                data.winner_tiles ?? "?"
+              })`
+            );
+          } else {
+            alert(
+              `Gra zakończona – ${data.winner_username} zdobył bingo.\n(Liczba zajętych pól: ${
+                data.winner_tiles ?? "?"
+              })`
+            );
+          }
+        } else if (data.win_type === "most_tiles") {
+          if (isMe) {
+            alert(
+              `Wygrałeś! Miałeś najwięcej pól: ${data.winner_tiles}.`
+            );
+          } else {
+            alert(
+              `Gra zakończona – wygrał ${data.winner_username}, który miał najwięcej pól: ${data.winner_tiles}.`
+            );
+          }
+        } else if (data.win_type === "draw") {
+          const names = (data.draw_usernames || []).join(", ");
+          alert(
+            `Gra zakończona remisem.\nNajwięcej pól (${data.draw_tiles}) mieli: ${names}.`
+          );
+        } else {
+          alert("Gra zakończona.");
+        }
+      })
+      .catch((err) => {
+        alert(err.message);
+      });
+  }
 
   function sendMessage() {
     if (!chatText.trim()) return;
 
-    const now = new Date();
-    const time = now.toLocaleTimeString("pl-PL", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    console.log(room.id)
     api.sendMessage(chatText.trim(), room.id).then((data) => {
       setMessages((prev) => [...prev, data]);
       setChatText("");
-    })
+    });
   }
+
+  // --- MÓJ PROFIL (popup) ---
+
+  async function openProfile() {
+    setProfileVisible(true);
+    setProfileLoading(true);
+    try {
+      const data = await getProfile();
+      setProfile(data);
+    } catch (e) {
+      alert("Nie udało się załadować profilu.");
+      setProfileVisible(false);
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
+  const winRate =
+    profile && profile.games_played > 0
+      ? Math.round((profile.games_won / profile.games_played) * 100)
+      : 0;
 
   return (
     <View style={styles.screen}>
-      {/* Panel info o pokoju */}
+      {/* INFO O POKOJU */}
       <Card style={styles.infoCard}>
         <Card.Content>
           <Text variant="titleMedium">{room.name}</Text>
@@ -123,9 +182,12 @@ export default function RoomScreen({ route, navigation }) {
             Uczestnicy: {room.players_count}/5
           </Text>
         </Card.Content>
+        <Card.Actions style={styles.infoActions}>
+          <Button onPress={openProfile}>Mój profil</Button>
+        </Card.Actions>
       </Card>
 
-      {/* Główna karta – plansza + przyciski */}
+      {/* PLANSZA BINGO */}
       <Card style={styles.mainCard}>
         <Card.Content>
           <Text variant="titleSmall" style={styles.sectionTitle}>
@@ -138,26 +200,36 @@ export default function RoomScreen({ route, navigation }) {
                 {Array.from({ length: SIZE }).map((_, col) => {
                   const index = row * SIZE + col;
                   const task = boardTasksObj[index];
-                  const taskLabel = task ? task.description : "Loading"
+                  const taskLabel = task ? task.description : "Ładowanie...";
+
                   let textStyle = styles.cellText;
-                  let cellStyle = null
-                  if ((task && uid == task.finished_by) || selected.has(index)) {
+                  let extraStyle = {};
+
+                  if (task && task.finished_by) {
                     textStyle = styles.cellTextActive;
-                    cellStyle = styles.cellActive;
-                  } else if (task && task.finished_by) {
-                    textStyle = styles.cellTextActive;
-                    cellStyle = styles.cellEnemy;
+
+                    if (task.color) {
+                      extraStyle = {
+                        backgroundColor: task.color,
+                        borderColor: task.color,
+                      };
+                    } else if (
+                      uid &&
+                      Number(uid) === Number(task.finished_by)
+                    ) {
+                      extraStyle = styles.cellActive;
+                    } else {
+                      extraStyle = styles.cellEnemy;
+                    }
                   }
+
                   return (
                     <TouchableOpacity
                       key={index}
-                      style={[styles.cell, cellStyle]}
+                      style={[styles.cell, extraStyle]}
                       onPress={() => toggleCell(index)}
                     >
-                      <Text
-                        style={cellStyle}
-                        numberOfLines={2}
-                      >
+                      <Text style={textStyle} numberOfLines={2}>
                         {taskLabel}
                       </Text>
                     </TouchableOpacity>
@@ -172,19 +244,19 @@ export default function RoomScreen({ route, navigation }) {
         </Card.Actions>
       </Card>
 
-      {/* Chat pokoju */}
+      {/* CHAT */}
       <Card style={styles.chatCard}>
         <Card.Title title="Chat pokoju" />
         <Card.Content style={styles.chatContent}>
           <FlatList
             data={messages}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => String(item.id)}
             contentContainerStyle={{ paddingBottom: 4 }}
             renderItem={({ item }) => (
               <View
                 style={[
                   styles.messageBubble,
-                  item.user_id == uid
+                  uid && Number(item.user_id) === Number(uid)
                     ? styles.messageBubbleMe
                     : styles.messageBubbleOther,
                 ]}
@@ -200,7 +272,7 @@ export default function RoomScreen({ route, navigation }) {
         <Card.Actions style={styles.chatInputRow}>
           <TextInput
             mode="outlined"
-            placeholder="Napisz wiadomość..."
+            placeholder="Napisz wiadomość."
             value={chatText}
             onChangeText={setChatText}
             style={styles.chatInput}
@@ -210,6 +282,72 @@ export default function RoomScreen({ route, navigation }) {
           </Button>
         </Card.Actions>
       </Card>
+
+      {/* POPUP: MÓJ PROFIL */}
+      <Portal>
+        <Dialog
+          visible={profileVisible}
+          onDismiss={() => setProfileVisible(false)}
+        >
+          <Dialog.Title>Mój profil</Dialog.Title>
+          <Dialog.Content>
+            {profileLoading && <Text>Ładowanie...</Text>}
+            {!profileLoading && profile && (
+              <View style={styles.profileContent}>
+                <View style={styles.profileHeader}>
+                  <Avatar.Text
+                    size={56}
+                    label={profile.username?.[0]?.toUpperCase() || "?"}
+                  />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text variant="titleMedium">{profile.username}</Text>
+                    <Text style={styles.profileEmail}>{profile.email}</Text>
+                  </View>
+                </View>
+
+                <Divider style={{ marginVertical: 8 }} />
+
+                <Text variant="titleSmall" style={{ marginBottom: 4 }}>
+                  Statystyki gracza
+                </Text>
+
+                <View style={styles.statsRow}>
+                  <View style={styles.statBox}>
+                    <Text variant="titleLarge" style={styles.statText}>
+                      {profile.games_played}
+                    </Text>
+                    <Text style={styles.statLabel}>rozegranych gier</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text variant="titleLarge" style={styles.statText}>
+                      {profile.games_won}
+                    </Text>
+                    <Text style={styles.statLabel}>wygrane</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text variant="titleLarge" style={styles.statText}>
+                      {winRate}%
+                    </Text>
+                    <Text style={styles.statLabel}>wsp. wygranych</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statsRow}>
+                  <View style={styles.statBoxWide}>
+                    <Text variant="titleLarge" style={styles.statText}>
+                      {profile.rooms_created}
+                    </Text>
+                    <Text style={styles.statLabel}>utworzone pokoje</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setProfileVisible(false)}>Zamknij</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -228,6 +366,11 @@ const styles = StyleSheet.create({
   },
   infoText: {
     opacity: 0.8,
+  },
+  infoActions: {
+    justifyContent: "flex-end",
+    paddingRight: 8,
+    paddingBottom: 4,
   },
   mainCard: {
     borderRadius: 16,
@@ -316,9 +459,52 @@ const styles = StyleSheet.create({
     fontSize: 11,
     opacity: 0.8,
     marginBottom: 2,
+    color: "white",
   },
   messageText: {
     fontSize: 14,
     color: "white",
+  },
+
+  // profil popup
+  profileContent: {
+    marginTop: 4,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  profileEmail: {
+    color: "#64748b",
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 8,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+  statBoxWide: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    paddingVertical: 6,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  statText: {
+    color: "white",
+  },
+  statLabel: {
+    color: "white",
+    opacity: 0.8,
+    fontSize: 12,
+    textAlign: "center",
   },
 });

@@ -11,6 +11,7 @@ import {
   TextInput,
 } from "react-native-paper";
 import { getProfile, updateProfile } from "../api/profile";
+import { logout } from "../api/auth";
 
 export default function ProfileScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
@@ -39,6 +40,17 @@ export default function ProfileScreen({ navigation }) {
     }
   }
 
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Auth" }],
+      });
+    }
+  }
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -54,8 +66,10 @@ export default function ProfileScreen({ navigation }) {
     <View style={styles.container}>
       <Card style={styles.card}>
         <Card.Content style={styles.content}>
-          {/* Avatar + podstawowe dane */}
-          <Avatar.Text size={72} label={profile.username?.[0]?.toUpperCase() || "?"} />
+          <Avatar.Text
+            size={72}
+            label={profile.username?.[0]?.toUpperCase() || "?"}
+          />
           <Text variant="headlineSmall" style={styles.nick}>
             {profile.username}
           </Text>
@@ -65,26 +79,31 @@ export default function ProfileScreen({ navigation }) {
 
           <Divider style={{ marginVertical: 12, alignSelf: "stretch" }} />
 
-          {/* Statystyki */}
           <Text variant="titleMedium" style={styles.sectionTitle}>
             Statystyki gracza
           </Text>
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Text variant="headlineSmall" style={styles.statText}>{profile.games_played}</Text>
+              <Text variant="headlineSmall" style={styles.statText}>
+                {profile.games_played}
+              </Text>
               <Text variant="bodySmall" style={styles.statLabel}>
                 rozegranych gier
               </Text>
             </View>
             <View style={styles.statBox}>
-              <Text variant="headlineSmall" style={styles.statText}>{profile.games_won}</Text>
+              <Text variant="headlineSmall" style={styles.statText}>
+                {profile.games_won}
+              </Text>
               <Text variant="bodySmall" style={styles.statLabel}>
                 wygrane
               </Text>
             </View>
             <View style={styles.statBox}>
-              <Text variant="headlineSmall" style={styles.statText}>{winRate}%</Text>
+              <Text variant="headlineSmall" style={styles.statText}>
+                {winRate}%
+              </Text>
               <Text variant="bodySmall" style={styles.statLabel}>
                 wsp. wygranych
               </Text>
@@ -93,7 +112,9 @@ export default function ProfileScreen({ navigation }) {
 
           <View style={styles.statsRow}>
             <View style={styles.statBoxWide}>
-              <Text variant="headlineSmall" style={styles.statText}>{profile.rooms_created}</Text>
+              <Text variant="headlineSmall" style={styles.statText}>
+                {profile.rooms_created}
+              </Text>
               <Text variant="bodySmall" style={styles.statLabel}>
                 utworzone pokoje
               </Text>
@@ -102,7 +123,6 @@ export default function ProfileScreen({ navigation }) {
 
           <Divider style={{ marginVertical: 12, alignSelf: "stretch" }} />
 
-          {/* Przyciski akcji */}
           <Button
             mode="outlined"
             style={styles.button}
@@ -114,22 +134,12 @@ export default function ProfileScreen({ navigation }) {
             Edytuj profil
           </Button>
 
-          <Button
-            mode="contained"
-            style={styles.button}
-            onPress={() => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Auth" }],
-              });
-            }}
-          >
+          <Button mode="contained" style={styles.button} onPress={handleLogout}>
             Wyloguj się
           </Button>
         </Card.Content>
       </Card>
 
-      {/* Edycja nicku */}
       <Portal>
         <Dialog visible={editVisible} onDismiss={() => setEditVisible(false)}>
           <Dialog.Title>Edytuj nazwę użykownika</Dialog.Title>

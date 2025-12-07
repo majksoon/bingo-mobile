@@ -1,8 +1,4 @@
-import { Platform } from "react-native";
-import { authGet, getToken } from "./auth";
-
-const API_URL =
-  Platform.OS === "web" ? "http://localhost:8000" : "http://10.0.2.2:8000";
+import { authGet, getToken, API_URL } from "./auth";
 
 export async function getProfile() {
   return authGet("/profile/me");
